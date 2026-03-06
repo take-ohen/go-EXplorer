@@ -16,3 +16,17 @@
 - `scanner.go` では、Goroutineとチャネルを利用して非同期にファイル情報をストリームする。
 - `sync.WaitGroup` で全Goroutineの完了を待ち、チャネルを `close` する。
 - セマフォ (`chan struct{}`) を使用して、同時に実行されるGoroutineの数を制限し、リソース枯渇を防ぐ。
+
+## 2026-03-27
+
+### ✅ 実施タスク
+
+- [x] `scanner.go` のエラーハンドリングを改善
+- [x] `scanner.go` のテストコード (`scanner_test.go`) を作成
+
+### 📝 メモ
+
+- `Scan` メソッドが `(<-chan FileItem, <-chan error)` を返すようにシグネチャを変更。
+- `os.ReadDir` や `entry.Info` で発生したエラーを、黙って無視するのではなく新設したエラーチャネルに送信するようにした。
+- `testing` パッケージと `t.TempDir()` を利用して、一時的なファイル構造を生成し、正常系のテスト (`TestScanner_Scan`) を実装。
+- 存在しないパスを指定し、エラーチャネルからエラーが正しく報告されることを確認する異常系のテスト (`TestScanner_Scan_Error`) も実装。

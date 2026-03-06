@@ -29,28 +29,30 @@ func NewScanner() *Scanner {
 }
 
 // Scan starts scanning the directory at root.
-// It returns a channel that receives FileItem objects as they are found.
-// The channel is closed when the scan is complete.
-func (s *Scanner) Scan(root string) <-chan FileItem {
-	out := make(chan FileItem, 1000) // Buffered channel for performance
+// It returns a channel for FileItem objects and a channel for errors.
+// Both channels are closed when the scan is complete.
+func (s *Scanner) Scan(root string) (<-chan FileItem, <-chan error) {
+	out := make(chan FileItem, 1000)
+	errc := make(chan error, 1) // Buffered to avoid blocking on first error
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		s.walk(root, out, &wg)
+		s.walk(root, out, errc, &wg)
 	}()
 
-	// Monitor routine to close the channel when all workers are done.
+	// Monitor routine to close channels when all workers are done.
 	go func() {
 		wg.Wait()
 		close(out)
+		close(errc)
 	}()
 
-	return out
+	return out, errc
 }
 
-func (s *Scanner) walk(path string, out chan<- FileItem, wg *sync.WaitGroup) {
+func (s *Scanner) walk(path string, out chan<- FileItem, errc chan<- error, wg *sync.WaitGroup) {
 	// Acquire semaphore token
 	s.sem <- struct{}{}
 	defer func() {
@@ -60,32 +62,31 @@ func (s *Scanner) walk(path string, out chan<- FileItem, wg *sync.WaitGroup) {
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		// Permission denied or other errors are ignored in this prototype.
+		errc <- err
 		return
 	}
 
 	for _, entry := range entries {
 		fullPath := filepath.Join(path, entry.Name())
 
-		// Get file info for size
 		info, err := entry.Info()
-		var size int64
-		if err == nil {
-			size = info.Size()
+		if err != nil {
+			errc <- err
+			continue // Skip this entry, but continue with the rest of the directory
 		}
 
 		out <- FileItem{
 			Path:  fullPath,
 			Name:  entry.Name(),
 			IsDir: entry.IsDir(),
-			Size:  size,
+			Size:  info.Size(),
 		}
 
 		if entry.IsDir() {
 			wg.Add(1)
 			go func(p string) {
 				defer wg.Done()
-				s.walk(p, out, wg)
+				s.walk(p, out, errc, wg)
 			}(fullPath)
 		}
 	}
