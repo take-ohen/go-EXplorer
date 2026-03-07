@@ -1,0 +1,9 @@
+番号,日付,状態,内容,備考
+1,2026-03-09,Closed,"internal/ui/directory_tree_model.go のコンパイルエラー修正","walk.TreeItem (`Child`->`ChildAt`), walk.TreeModel (`Root`->`RootAt`) の実装"
+2,2026-03-09,Closed,"internal/ui/mainwindow.go のコンパイルエラー修正",TreeViewへのモデル適用部分の型整合性確認
+3,2026-03-09,Closed,TreeViewでのディレクトリ選択とTableViewの連動,"再帰スキャンではなく、直下のファイル一覧を表示するように修正"
+4,2026-03-09,Open,"TableViewのカラム追加（更新日時、ファイル種別）",
+5,2026-03-09,Open,Grep検索機能 (EX-grep),
+6,2026-03-09,Open,ディレクトリ容量可視化 (Visual Sum),
+7,2026-03-09,Closed,エラーハンドリングの強化,"コンソールへのエラー出力を削除し、Deep Scan機能を分離実装"
+8,2026-03-09,Open,テストコードの拡充,

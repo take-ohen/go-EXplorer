@@ -1,9 +1,11 @@
 package core
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // FileItem represents a file or directory found during scanning.
@@ -72,14 +74,19 @@ func (s *Scanner) walk(path string, out chan<- FileItem, errc chan<- error, wg *
 		info, err := entry.Info()
 		if err != nil {
 			errc <- err
-			continue // Skip this entry, but continue with the rest of the directory
+			// Do not continue; try to process even if Info() fails.
+		}
+
+		var size int64
+		if info != nil {
+			size = info.Size()
 		}
 
 		out <- FileItem{
 			Path:  fullPath,
 			Name:  entry.Name(),
 			IsDir: entry.IsDir(),
-			Size:  info.Size(),
+			Size:  size,
 		}
 
 		if entry.IsDir() {
@@ -90,4 +97,28 @@ func (s *Scanner) walk(path string, out chan<- FileItem, errc chan<- error, wg *
 			}(fullPath)
 		}
 	}
+}
+
+// ListDir returns the list of files and directories in the specified path.
+// It does not traverse subdirectories.
+func ListDir(path string) ([]FileItem, error) {
+	start := time.Now()
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("[DEBUG] ReadDir %s: %v\n", path, time.Since(start))
+
+	var items []FileItem
+	loopStart := time.Now()
+	for _, entry := range entries {
+		info, _ := entry.Info() // Error ignored for list view performance
+		var size int64
+		if info != nil {
+			size = info.Size()
+		}
+		items = append(items, FileItem{Path: filepath.Join(path, entry.Name()), Name: entry.Name(), IsDir: entry.IsDir(), Size: size})
+	}
+	fmt.Printf("[DEBUG] ListDir Loop %s: %v (Items: %d)\n", path, time.Since(loopStart), len(entries))
+	return items, nil
 }
