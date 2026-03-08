@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -18,6 +19,9 @@ func Run() {
 	var treeView *walk.TreeView
 	fileListModel := NewFileInfoModel()
 	treeModel := NewDirectoryTreeModel()
+
+	// 起動時の自動遷移制御用フラグ
+	isSpecialInit := true
 
 	// ディレクトリ移動処理
 	changeLocation := func(path string) {
@@ -44,11 +48,19 @@ func Run() {
 		}()
 	}
 
-	MainWindow{
+	if err := (MainWindow{
 		AssignTo: &mw,
 		Title:    "Go-EXplorer",
 		MinSize:  Size{Width: 800, Height: 600},
 		Layout:   VBox{},
+		// ウィンドウ表示時に初期パスへ移動
+		OnSizeChanged: func() {
+			if isSpecialInit {
+				isSpecialInit = false
+				// 初期パスへの移動
+				changeLocation("C:\\Windows")
+			}
+		},
 		Children: []Widget{
 			// 1. 上部ツールバーエリア
 			Composite{
@@ -84,6 +96,10 @@ func Run() {
 						Model:    treeModel,
 						MinSize:  Size{Width: 200},
 						OnCurrentItemChanged: func() {
+							// 初期化中はイベントを無視
+							if isSpecialInit {
+								return
+							}
 							if item := treeView.CurrentItem(); item != nil {
 								node := item.(*DirectoryNode)
 								changeLocation(node.Path())
@@ -103,7 +119,13 @@ func Run() {
 				},
 			},
 		},
-	}.Run()
+	}).Create(); err != nil {
+		log.Fatal(err)
+	}
+
+	// ModelにMainWindowの参照を渡し、ルートノードを初期化する
+	treeModel.SetMainWindow(mw)
+	mw.Run()
 }
 
 // scanPath performs the file scanning in a separate goroutine.
